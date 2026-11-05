@@ -1,0 +1,9 @@
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/EmployeeManagementApplication.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/config/WebConfig.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/controller/EmployeeController.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/dto/EmployeeRequest.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/exception/GlobalExceptionHandler.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/exception/ResourceNotFoundException.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/model/Employee.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/repository/EmployeeRepository.java
+/root/reactjs-springboot/backend/src/main/java/com/example/ems/service/EmployeeService.java
