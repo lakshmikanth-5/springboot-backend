@@ -1,0 +1,93 @@
+
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+    }
+
+    stages {
+
+        stage('Docker Image Build') {
+            steps {
+                sh '''
+                    docker build \
+                        -t java-spring:v${BUILD_NUMBER} \
+                        -f Dockerfile_multi_stage \
+                        .
+                '''
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker_cred_token',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        set +x
+                        echo "$DOCKER_PASS" | docker login \
+                            -u "$DOCKER_USER" --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Tagging') {
+            steps {
+                sh '''
+                    docker tag \
+                        java-spring:v${BUILD_NUMBER} \
+                        laxmikanth5/reactjs-springboot:spring-v${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Image Push to DockerHub') {
+            steps {
+                sh '''
+                    docker push \
+                        laxmikanth5/reactjs-springboot:spring-v${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        /*
+        stage('Push to ECR') {
+            steps {
+                sh '''
+                    aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 897276212041.dkr.ecr.us-west-2.amazonaws.com
+
+                    docker tag java-spring:v${BUILD_NUMBER} 897276212041.dkr.ecr.us-west-2.amazonaws.com/devops19-java:v${BUILD_NUMBER}
+
+                    docker push 897276212041.dkr.ecr.us-west-2.amazonaws.com/devops19-java:v${BUILD_NUMBER}
+                '''
+            }
+        }
+        */
+    }
+
+    post {
+
+        always {
+            slackSend(
+                channel: '#all-project25',
+                message: """
+                    Job: ${env.JOB_NAME}
+                    Build: #${env.BUILD_NUMBER}
+                    Status: ${currentBuild.currentResult}
+                    URL: ${env.BUILD_URL}
+                """,
+                teamDomain: 'project25-world',
+                tokenCredentialId: 'slack-token'
+            )
+        }
+
+        cleanup {
+            cleanWs()
+        }
+    }
+}
