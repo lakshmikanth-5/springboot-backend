@@ -1,0 +1,122 @@
+
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+    }
+
+    environment {
+        // DockerHub
+        DOCKERHUB_REPO = 'laxmikanth5/reactjs-springboot'
+
+        // AWS ECR
+        AWS_REGION = 'us-east-1'
+        AWS_ACCOUNT_ID = '658424926696'
+        ECR_REPO = 'devops25/backend-java'
+        ECR_REGISTRY = '658424926696.dkr.ecr.us-east-1.amazonaws.com'
+    }
+
+    stages {
+
+        stage('Docker Image Build') {
+            steps {
+                sh '''
+                    docker build \
+                        -t java-spring:v${BUILD_NUMBER} \
+                        -f Dockerfile_multi_stage \
+                        .
+                '''
+            }
+        }
+
+        stage('DockerHub Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker_cred_token',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        set +x
+                        echo "$DOCKER_PASS" | docker login \
+                            -u "$DOCKER_USER" \
+                            --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('DockerHub Tagging') {
+            steps {
+                sh '''
+                    docker tag \
+                        java-spring:v${BUILD_NUMBER} \
+                        ${DOCKERHUB_REPO}:spring-v${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Push Image to DockerHub') {
+            steps {
+                sh '''
+                    docker push \
+                        ${DOCKERHUB_REPO}:spring-v${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('AWS ECR Login') {
+            steps {
+                sh '''
+                    aws ecr get-login-password \
+                        --region ${AWS_REGION} |
+                    docker login \
+                        --username AWS \
+                        --password-stdin ${ECR_REGISTRY}
+                '''
+            }
+        }
+
+        stage('ECR Image Tagging') {
+            steps {
+                sh '''
+                    docker tag \
+                        java-spring:v${BUILD_NUMBER} \
+                        ${ECR_REGISTRY}/${ECR_REPO}:spring-v${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Push Image to ECR') {
+            steps {
+                sh '''
+                    docker push \
+                        ${ECR_REGISTRY}/${ECR_REPO}:spring-v${BUILD_NUMBER}
+                '''
+            }
+        }
+    }
+
+    post {
+
+        always {
+            slackSend(
+                channel: '#all-project25',
+                message: """
+                    Job: ${env.JOB_NAME}
+                    Build: #${env.BUILD_NUMBER}
+                    Status: ${currentBuild.currentResult}
+                    URL: ${env.BUILD_URL}
+                """,
+                teamDomain: 'project25-world',
+                tokenCredentialId: 'slack-token'
+            )
+        }
+
+        cleanup {
+            cleanWs()
+        }
+    }
+}
